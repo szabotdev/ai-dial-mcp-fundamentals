@@ -11,6 +11,14 @@ from user_client import UserClient
 #       - host is "0.0.0.0",
 #       - port is 8005,
 # 2. Create UserClient
+mcp = FastMCP(
+    name="users-management-mcp-server",
+    host="0.0.0.0",
+    port=8005,
+    log_level="DEBUG"
+)
+
+user_client = UserClient()
 
 
 # ==================== TOOLS ====================
@@ -27,6 +35,31 @@ from user_client import UserClient
 # 4. `add_user`:-
 # 5. `update_user`:-
 
+@mcp.tool()
+async def get_user_by_id(user_id: int) -> str:
+    """Provides full user information by user_id"""
+    return await user_client.get_user(user_id)
+
+@mcp.tool()
+async def delete_user(user_id: int) -> str:
+    """Deletes user by user_id"""
+    return await user_client.delete_user(user_id)
+
+@mcp.tool()
+async def search_user(user_search_request: UserSearchRequest) -> str:
+    """Searches for users by name, surname, email and gender"""
+    return await user_client.search_users(**user_search_request.model_dump())
+
+@mcp.tool()
+async def add_user(user_create: UserCreate) -> str:
+    """Adds new user into the system"""
+    return await user_client.add_user(user_create)
+
+@mcp.tool()
+async def update_user(user_id: int, user_update: UserUpdate) -> str:
+    """Updates an existing user by user_id"""
+    return await user_client.update_user(user_id, user_update)
+
 # ==================== MCP RESOURCES ====================
 
 #TODO:
@@ -40,6 +73,20 @@ from user_client import UserClient
 # 2. You need to get `flow.png` picture from `mcp_server` folder and return it as bytes.
 # 3. Don't forget to provide resource description
 
+@mcp.resource(
+    uri="users-management://flow-diagram",
+    mime_type="image/png"
+)
+async def get_flow_diagram() -> bytes:
+    """Provides screenshot with Swagger endpoints of User Service"""
+    image_path = Path(__file__).parent / "flow.png"
+
+    if not image_path.exists():
+        raise FileNotFoundError(f"Flow diagram not found at {image_path}")
+   
+    with open(image_path, "rb") as f:
+        return f.read()
+
 
 # ==================== MCP PROMPTS ====================
 
@@ -50,7 +97,11 @@ from user_client import UserClient
 # Prompts are prepared, you need just properly return them and provide descriptions of them"
 
 # Helps users formulate effective search queries
-"""
+
+@mcp.prompt()
+async def user_search_assistant_prompt() -> str:
+    """Helps users formulate effective search queries"""
+    return """
 You are helping users search through a dynamic user database. The database contains 
 realistic synthetic user profiles with the following searchable fields:
 
@@ -102,7 +153,10 @@ why certain approaches might be more effective for their goals.
 
 
 # Guides creation of realistic user profiles
-"""
+@mcp.prompt()
+async def user_profile_creation_prompt() -> str:
+    """Guides creation of realistic user profiles"""
+    return """
 You are helping create realistic user profiles for the system. Follow these guidelines 
 to ensure data consistency and realism.
 
@@ -177,4 +231,6 @@ When creating profiles, aim for diversity in:
 if __name__ == "__main__":
     #TODO:
     # Run server with `transport="streamable-http"`
-    raise NotImplementedError()
+    mcp.run(
+        transport="streamable-http"
+    )
